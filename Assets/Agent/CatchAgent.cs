@@ -25,7 +25,7 @@ public class CatchAgent : Agent {
     public float NoGoZoneEnterPenalty = 3f;
     public float BallOffPlanePenalty = 5f;
     public float AgentOffPlanePenalty = 10f;
-    public float MovementPenalty = 0.001f;
+    public float MovementPenalty = 0.01f;
 
     [Header("Ball Physics")]
     public float BallThrowForce = 8f;
@@ -75,7 +75,7 @@ public class CatchAgent : Agent {
         Vector3 direction = (transform.position - Ball.transform.position).normalized;
         float horizontalDeviation = UnityEngine.Random.Range(HorizonalThrowAngleRange.x, HorizonalThrowAngleRange.y);
         float verticalDeviation = UnityEngine.Random.Range(VerticalThrowAngleRange.x, VerticalThrowAngleRange.y);
-        Vector3 deviatedDirection = Quaternion.Euler(horizontalDeviation, verticalDeviation, 0) * direction;
+        Vector3 deviatedDirection = Quaternion.Euler(verticalDeviation, horizontalDeviation, 0) * direction;
         ballRigidbody.AddForce(deviatedDirection * BallThrowForce, ForceMode.VelocityChange);
     }
 
