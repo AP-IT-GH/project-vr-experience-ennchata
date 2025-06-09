@@ -32,6 +32,7 @@ public class CatchAgent : Agent {
     public float BallThrowForce = 8f;
     public Vector2 HorizonalThrowAngleRange = new Vector2(-30f, 30f);
     public Vector2 VerticalThrowAngleRange = new Vector2(-5f, 30f);
+    public Vector2 SpawnRange = new Vector2(-4f, 4f);
 
     private Vector3 initialPosition;
     private Quaternion initialRotation;
@@ -69,7 +70,8 @@ public class CatchAgent : Agent {
         ballTouchingGround = false;
         ballTouchingGroundDebounce = false;
 
-        Ball.transform.position = BallSpawnpoint.position;
+        Vector3 spawnOffset = new Vector3(UnityEngine.Random.Range(SpawnRange.x, SpawnRange.y), 0, 0);
+        Ball.transform.position = BallSpawnpoint.position + spawnOffset;
         ballRigidbody.velocity = Vector3.zero;
         ballRigidbody.angularVelocity = Vector3.zero;
 

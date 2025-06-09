@@ -614,10 +614,6 @@ PrefabInstance:
       value: Training Area
       objectReference: {fileID: 0}
     - target: {fileID: 1250225910639565954, guid: 30b59f2733755c44b9bdb4c6d43c6cb1, type: 3}
-      propertyPath: m_Model
-      value: 
-      objectReference: {fileID: 0}
-    - target: {fileID: 1250225910639565954, guid: 30b59f2733755c44b9bdb4c6d43c6cb1, type: 3}
       propertyPath: m_BehaviorType
       value: 0
       objectReference: {fileID: 0}
