@@ -26,6 +26,7 @@ public class CatchAgent : Agent {
     public float BallOffPlanePenalty = 5f;
     public float AgentOffPlanePenalty = 10f;
     public float MovementPenalty = 0.01f;
+    public bool NewMovementPenaltyScheme = false;
 
     [Header("Ball Physics")]
     public float BallThrowForce = 8f;
@@ -133,7 +134,11 @@ public class CatchAgent : Agent {
         Vector3 moveVector = moveInput * MoveSpeed * Time.deltaTime * transform.forward;
         agentRigidbody.MovePosition(agentRigidbody.position + moveVector);
 
-        AddReward(-MovementPenalty * (Mathf.Abs(moveInput) + Mathf.Abs(turnInput)));
+        if (NewMovementPenaltyScheme) {
+            float turnPunishment = -MovementPenalty * 2 * Mathf.Abs(turnInput);
+            float movePunishment = moveInput > 0 ? -MovementPenalty * Mathf.Abs(moveInput) : -MovementPenalty * 4 * Mathf.Abs(moveInput);
+            AddReward(turnPunishment + movePunishment);
+        } else AddReward(-MovementPenalty * (Mathf.Abs(moveInput) + Mathf.Abs(turnInput)));
     }
 
     public override void Heuristic(in ActionBuffers actionsOut) {

@@ -390,9 +390,10 @@ MonoBehaviour:
   BallOffPlanePenalty: 5
   AgentOffPlanePenalty: 10
   MovementPenalty: 0.01
+  NewMovementPenaltyScheme: 1
   BallThrowForce: 8
-  HorizonalThrowAngleRange: {x: -10, y: 10}
-  VerticalThrowAngleRange: {x: 0, y: 0}
+  HorizonalThrowAngleRange: {x: -30, y: 30}
+  VerticalThrowAngleRange: {x: -5, y: 30}
 --- !u!114 &8155638793933134123
 MonoBehaviour:
   m_ObjectHideFlags: 0
