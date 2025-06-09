@@ -1,158 +1,121 @@
-using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.XR.Interaction.Toolkit;
 
 public class VRBallThrower : MonoBehaviour {
-    [Header("VR References")]
-    public Transform VRCamera;
-    public XRRayInteractor RightController;
-    public ActionBasedController RightControllerAction;
+    [Header("References")]
+    public GameObject ballPrefab;
+    public Transform ballSpawnPoint;
+    public CatchAgent mlAgent;
+    public LineRenderer aimLine;
 
-    [Header("Ball Settings")]
-    public GameObject BallPrefab;
-    public Transform BallSpawnPoint;
-    public float BallThrowForce = 8f;
-    public float BallLifetime = 15f;
+    [Header("Throwing Parameters")]
+    public float throwForce = 8f;
+    public float ballLifetime = 10f;
+    public int aimLinePoints = 50;
+    public float trajectoryTimeStep = 0.1f;
 
-    [Header("Movement Constraints")]
-    public float MinX = -6f;
-    public float MaxX = 6f;
-    public float FixedY = 0.5f;
-    public float FixedZ = -9f;
+    private GameObject currentBall;
+    private bool isAiming = false;
+    private bool lastTriggerState = false;
 
-    [Header("Agent Integration")]
-    public CatchAgent CatchAgent;
-
-    [Header("Visual Feedback")]
-    public LineRenderer TrajectoryLine;
-    public int TrajectoryPoints = 30;
-    public float TrajectoryTimeStep = 0.1f;
-
-    [Header("Throw Cooldown")]
-    public float ThrowCooldown = 1f;
-
-    private float lastThrowTime = 0f;
+    // We'll manually access this action by name
+    private InputAction triggerAction;
 
     void Start() {
-        Vector3 startPos = new Vector3(0, FixedY, FixedZ);
-        transform.position = startPos;
-
-        if (RightControllerAction != null) {
-            RightControllerAction.activateAction.action.performed += OnTriggerPressed;
+        // Setup line
+        if (aimLine != null) {
+            aimLine.positionCount = aimLinePoints;
+            aimLine.enabled = false;
         }
 
-        if (TrajectoryLine != null) {
-            TrajectoryLine.positionCount = TrajectoryPoints;
-            TrajectoryLine.enabled = false;
+        // Manually find the RightHand trigger action
+        var inputActionAsset = Resources.Load<InputActionAsset>("XRI Default Input Actions");
+        if (inputActionAsset != null) {
+            triggerAction = inputActionAsset.FindAction("XRI RightHand Interaction/Select", true);
+            triggerAction.Enable();
+        } else {
+            Debug.LogError("Could not find 'XRI Default Input Actions' in Resources folder.");
         }
     }
 
     void Update() {
-        ConstrainPlayerMovement();
-        UpdateTrajectoryVisualization();
-    }
+        if (triggerAction == null) return;
 
-    void ConstrainPlayerMovement() {
-        Vector3 currentPos = transform.position;
-        float clampedX = Mathf.Clamp(currentPos.x, MinX, MaxX);
+        bool triggerPressed = triggerAction.ReadValue<float>() > 0.5f;
 
-        Vector3 constrainedPos = new Vector3(clampedX, FixedY, FixedZ);
-
-        if (Vector3.Distance(currentPos, constrainedPos) > 0.01f) {
-            transform.position = constrainedPos;
-        }
-    }
-
-    void UpdateTrajectoryVisualization() {
-        if (TrajectoryLine == null) return;
-
-        if (RightController != null) {
-            TrajectoryLine.enabled = true;
-            Vector3 throwDirection = RightController.transform.forward;
-            Vector3 startPosition = BallSpawnPoint.position;
-
-            for (int i = 0; i < TrajectoryPoints; i++) {
-                float time = i * TrajectoryTimeStep;
-                Vector3 point = CalculateTrajectoryPoint(startPosition, throwDirection * BallThrowForce, time);
-                TrajectoryLine.SetPosition(i, point);
-
-                if (point.y <= 0) {
-                    for (int j = i; j < TrajectoryPoints; j++) {
-                        TrajectoryLine.SetPosition(j, point);
-                    }
-                    break;
-                }
+        if (triggerPressed && !lastTriggerState) {
+            StartAiming();
+        } else if (!triggerPressed && lastTriggerState) {
+            if (isAiming) {
+                ThrowBall();
+                StopAiming();
             }
-        } else {
-            TrajectoryLine.enabled = false;
+        }
+
+        lastTriggerState = triggerPressed;
+
+        if (isAiming) {
+            UpdateAimLine();
         }
     }
 
-    Vector3 CalculateTrajectoryPoint(Vector3 startPos, Vector3 initialVelocity, float time) {
-        Vector3 gravity = Physics.gravity;
-        return startPos + initialVelocity * time + 0.5f * gravity * time * time;
+    void StartAiming() {
+        isAiming = true;
+        if (aimLine != null) aimLine.enabled = true;
     }
 
-    void OnTriggerPressed(UnityEngine.InputSystem.InputAction.CallbackContext context) {
-        if (Time.time - lastThrowTime < ThrowCooldown) {
-            return;
-        }
+    void StopAiming() {
+        isAiming = false;
+        if (aimLine != null) aimLine.enabled = false;
+    }
 
-        if (RightController != null) {
-            ThrowBall();
+    void UpdateAimLine() {
+        if (!isAiming || aimLine == null) return;
+
+        aimLine.positionCount = aimLinePoints;
+
+        Vector3 throwDirection = transform.forward;
+        Vector3 startPosition = ballSpawnPoint.position;
+
+        for (int i = 0; i < aimLinePoints; i++) {
+            float time = i * trajectoryTimeStep;
+            Vector3 point = CalculateTrajectoryPoint(startPosition, throwDirection * throwForce, time);
+            aimLine.SetPosition(i, point);
+
+            if (point.y <= 0f) {
+                for (int j = i + 1; j < aimLinePoints; j++) {
+                    aimLine.SetPosition(j, point);
+                }
+                break;
+            }
         }
+    }
+
+    Vector3 CalculateTrajectoryPoint(Vector3 startPos, Vector3 velocity, float time) {
+        return startPos + velocity * time + 0.5f * Physics.gravity * time * time;
     }
 
     void ThrowBall() {
-        if (BallPrefab == null || BallSpawnPoint == null) {
-            Debug.LogWarning("Ball prefab or spawn point not assigned!");
-            return;
+        if (ballPrefab == null || ballSpawnPoint == null) return;
+
+        if (currentBall != null) Destroy(currentBall);
+
+        currentBall = Instantiate(ballPrefab, ballSpawnPoint.position, Quaternion.identity);
+
+        Ball ballComponent = currentBall.GetComponent<Ball>();
+        if (ballComponent == null) ballComponent = currentBall.AddComponent<Ball>();
+
+        if (mlAgent != null) {
+            mlAgent.Ball = ballComponent;
+            mlAgent.EndEpisode();
         }
 
-        GameObject newBall = Instantiate(BallPrefab, BallSpawnPoint.position, Quaternion.identity);
-
-        Rigidbody ballRb = newBall.GetComponent<Rigidbody>();
-        Ball ballBall = newBall.GetComponent<Ball>();
-        if (ballRb == null || ballBall == null) {
-            Destroy(newBall);
-            return;
+        Rigidbody ballRb = currentBall.GetComponent<Rigidbody>();
+        if (ballRb != null) {
+            ballRb.AddForce(transform.forward * throwForce, ForceMode.VelocityChange);
         }
 
-        Vector3 throwDirection = RightController.transform.forward;
-        ballRb.velocity = Vector3.zero;
-        ballRb.AddForce(throwDirection * BallThrowForce, ForceMode.VelocityChange);
-
-        if (CatchAgent != null) {
-            CatchAgent.Ball = ballBall;
-        }
-
-        Destroy(newBall, BallLifetime);
-        lastThrowTime = Time.time;
-    }
-
-    void OnDestroy() {
-        if (RightControllerAction != null) {
-            RightControllerAction.activateAction.action.performed -= OnTriggerPressed;
-        }
-    }
-
-    void OnDrawGizmos() {
-        Gizmos.color = Color.red;
-        Vector3 minPos = new Vector3(MinX, FixedY, FixedZ);
-        Vector3 maxPos = new Vector3(MaxX, FixedY, FixedZ);
-        Gizmos.DrawLine(minPos, maxPos);
-
-        Gizmos.color = Color.blue;
-        Gizmos.DrawWireSphere(transform.position, 0.3f);
-
-        if (BallSpawnPoint != null) {
-            Gizmos.color = Color.green;
-            Gizmos.DrawWireSphere(BallSpawnPoint.position, 0.15f);
-
-            if (RightController != null) {
-                Gizmos.color = Color.yellow;
-                Vector3 throwDir = RightController.transform.forward * 2f;
-                Gizmos.DrawRay(BallSpawnPoint.position, throwDir);
-            }
-        }
+        Destroy(currentBall, ballLifetime);
     }
 }

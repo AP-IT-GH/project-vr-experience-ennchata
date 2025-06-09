@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class CatchAgent : Agent {
@@ -33,6 +34,9 @@ public class CatchAgent : Agent {
     public Vector2 HorizonalThrowAngleRange = new Vector2(-30f, 30f);
     public Vector2 VerticalThrowAngleRange = new Vector2(-5f, 30f);
     public Vector2 SpawnRange = new Vector2(-4f, 4f);
+
+    [Header("Runtime")]
+    public bool inferenceMode = true;
 
     private Vector3 initialPosition;
     private Quaternion initialRotation;
@@ -70,22 +74,25 @@ public class CatchAgent : Agent {
         ballTouchingGround = false;
         ballTouchingGroundDebounce = false;
 
-        Vector3 spawnOffset = new Vector3(UnityEngine.Random.Range(SpawnRange.x, SpawnRange.y), 0, 0);
-        Ball.transform.position = BallSpawnpoint.position + spawnOffset;
-        ballRigidbody.velocity = Vector3.zero;
-        ballRigidbody.angularVelocity = Vector3.zero;
+        if (!inferenceMode) {
+            Vector3 spawnOffset = new Vector3(UnityEngine.Random.Range(SpawnRange.x, SpawnRange.y), 0, 0);
+            Ball.transform.position = BallSpawnpoint.position + spawnOffset;
+            ballRigidbody.velocity = Vector3.zero;
+            ballRigidbody.angularVelocity = Vector3.zero;
 
-        Vector3 direction = (transform.position - Ball.transform.position).normalized;
-        float horizontalDeviation = UnityEngine.Random.Range(HorizonalThrowAngleRange.x, HorizonalThrowAngleRange.y);
-        float verticalDeviation = UnityEngine.Random.Range(VerticalThrowAngleRange.x, VerticalThrowAngleRange.y);
-        Vector3 deviatedDirection = Quaternion.Euler(verticalDeviation, horizontalDeviation, 0) * direction;
-        ballRigidbody.AddForce(deviatedDirection * BallThrowForce, ForceMode.VelocityChange);
+            Vector3 direction = (transform.position - Ball.transform.position).normalized;
+            float horizontalDeviation = UnityEngine.Random.Range(HorizonalThrowAngleRange.x, HorizonalThrowAngleRange.y);
+            float verticalDeviation = UnityEngine.Random.Range(VerticalThrowAngleRange.x, VerticalThrowAngleRange.y);
+            Vector3 deviatedDirection = Quaternion.Euler(verticalDeviation, horizontalDeviation, 0) * direction;
+            ballRigidbody.AddForce(deviatedDirection * BallThrowForce, ForceMode.VelocityChange);
+        }
     }
 
     public override void CollectObservations(VectorSensor sensor) {
         sensor.AddObservation(transform.position);
         sensor.AddObservation(transform.rotation.y);
-        sensor.AddObservation(transform.position - Ball.transform.position);
+        if (Ball == null || Ball.IsDestroyed()) sensor.AddObservation(transform.position);
+        else sensor.AddObservation(transform.position - Ball.transform.position);
 
         sensor.AddObservation(agentRigidbody.velocity);
         sensor.AddObservation(ballRigidbody.velocity);
@@ -108,6 +115,8 @@ public class CatchAgent : Agent {
     }
 
     public override void OnActionReceived(ActionBuffers actions) {
+        if (Ball == null || Ball.IsDestroyed()) return;
+
         if (touchingBall) {
             AddReward(CatchReward);
             EndEpisode();
