@@ -97,7 +97,7 @@ public class VRBallThrower : MonoBehaviour {
     }
 
     Vector3 CalculateTrajectoryPoint(Vector3 startPos, Vector3 velocity, float time) {
-        return startPos + velocity * time + 0.5f * Physics.gravity * time * time;
+        return startPos + velocity * time + 0.5f * time * time * Physics.gravity;
     }
 
     void ThrowBall() {
