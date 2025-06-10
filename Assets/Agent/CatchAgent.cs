@@ -43,6 +43,7 @@ public class CatchAgent : Agent {
     private Rigidbody agentRigidbody;
     private Rigidbody ballRigidbody;
     private bool touchingBall, touchingNoGoZone, ballTouchingGround, ballTouchingGroundDebounce = false;
+    private bool agentEnabled = false;
 
     // Lifecycle + phsyics methods
     private void Start() {
@@ -65,7 +66,23 @@ public class CatchAgent : Agent {
     }
 
     // ML Agent methods
+    public void PauseAgent() {
+        agentEnabled = false;
+    }
+
+    public void ResumeAgent() {
+        if (Ball == null) {
+            Debug.LogWarning("Ball not assigned.");
+            return;
+        }
+        
+        agentEnabled = true;
+        OnEpisodeBegin();
+    }
+
     public override void OnEpisodeBegin() {
+        if (!agentEnabled) return;
+
         transform.SetPositionAndRotation(initialPosition, initialRotation);
         agentRigidbody.velocity = Vector3.zero;
         agentRigidbody.angularVelocity = Vector3.zero;
@@ -89,6 +106,8 @@ public class CatchAgent : Agent {
     }
 
     public override void CollectObservations(VectorSensor sensor) {
+        if (!agentEnabled) return;
+
         sensor.AddObservation(transform.position);
         sensor.AddObservation(transform.rotation.y);
         if (Ball == null || Ball.IsDestroyed()) sensor.AddObservation(transform.position);
@@ -115,10 +134,12 @@ public class CatchAgent : Agent {
     }
 
     public override void OnActionReceived(ActionBuffers actions) {
+        if (!agentEnabled) return;
         if (Ball == null || Ball.IsDestroyed()) return;
 
         if (touchingBall) {
             AddReward(CatchReward);
+            Destroy(Ball);
             EndEpisode();
         } else if (touchingNoGoZone) {
             AddReward(-NoGoZoneEnterPenalty);

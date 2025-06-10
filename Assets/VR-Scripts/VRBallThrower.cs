@@ -1,3 +1,6 @@
+using System;
+using System.Collections;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR.Interaction.Toolkit;
@@ -11,13 +14,14 @@ public class VRBallThrower : MonoBehaviour {
 
     [Header("Throwing Parameters")]
     public float throwForce = 8f;
-    public float ballLifetime = 10f;
+    public float ballLifetime = 4f;
     public int aimLinePoints = 50;
     public float trajectoryTimeStep = 0.1f;
 
     private GameObject currentBall;
     private bool isAiming = false;
     private bool lastTriggerState = false;
+    private bool allowThrow = true;
 
     // We'll manually access this action by name
     private InputAction triggerAction;
@@ -98,8 +102,8 @@ public class VRBallThrower : MonoBehaviour {
 
     void ThrowBall() {
         if (ballPrefab == null || ballSpawnPoint == null) return;
-
-        if (currentBall != null) Destroy(currentBall);
+        if (!allowThrow) return;
+        Debug.Log("Throw.");
 
         currentBall = Instantiate(ballPrefab, ballSpawnPoint.position, Quaternion.identity);
 
@@ -108,7 +112,7 @@ public class VRBallThrower : MonoBehaviour {
 
         if (mlAgent != null) {
             mlAgent.Ball = ballComponent;
-            mlAgent.EndEpisode();
+            mlAgent.ResumeAgent();
         }
 
         Rigidbody ballRb = currentBall.GetComponent<Rigidbody>();
@@ -116,6 +120,20 @@ public class VRBallThrower : MonoBehaviour {
             ballRb.AddForce(transform.forward * throwForce, ForceMode.VelocityChange);
         }
 
-        Destroy(currentBall, ballLifetime);
+        allowThrow = false;
+
+        StartCoroutine(
+            Timeout(ballLifetime, () => {
+                if (currentBall != null || !currentBall.IsDestroyed() )Destroy(currentBall);
+                mlAgent.PauseAgent();
+                allowThrow = true;
+                Debug.Log("Destroy.");
+            })
+        );
+    }
+
+    private IEnumerator Timeout(float time, Action action) {
+        yield return new WaitForSeconds(time);
+        action.Invoke();
     }
 }

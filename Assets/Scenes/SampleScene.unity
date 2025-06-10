@@ -361,7 +361,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6598815579406187037, guid: 18ddb545287c546e19cc77dc9fbb2189, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -400,7 +400,7 @@ MonoBehaviour:
   mlAgent: {fileID: 1549228038}
   aimLine: {fileID: 1132561519}
   throwForce: 8
-  ballLifetime: 10
+  ballLifetime: 4
   aimLinePoints: 50
   trajectoryTimeStep: 0.1
 --- !u!114 &1549228038 stripped
